@@ -61,6 +61,10 @@ fn write_and_get_result(mut stream: &TcpStream, cmd: String) -> String {
             // reader.read_line(&mut response).unwrap();
             // println!("2. {response}");
         }
+    } else if line.starts_with(':') {
+        let sub = &line[1..].trim();
+        let lines = sub.parse::<i32>().unwrap();
+        response = String::from("(integer) ") + &lines.to_string();
     } else {
         response = line;
     }
@@ -77,7 +81,7 @@ fn read_next_line(line: String, reader: &mut BufReader<&TcpStream>) -> String {
     if chars > 0 {
         let mut buf: Vec<u8> = vec![0; (chars + 2) as usize];
         reader.read_exact(buf.as_mut_slice()).unwrap();
-        String::from_utf8(buf).unwrap()
+        String::from_utf8_lossy(&*buf).to_string()
     } else {
         String::from("(nil)")
     }
