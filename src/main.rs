@@ -4,24 +4,42 @@ use std::{env, io};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[clap(disable_help_flag = true)]
+struct Args {
+    #[arg(short, long, default_value_t = String::from("127.0.0.1"))]
+    host: String,
+    #[arg(short, long, default_value_t = 6379)]
+    port: u16,
+    #[arg(short = 'a', long)]
+    password: Option<String>,
+    #[clap(subcommand)]
+    cmd: Option<Command>,
+}
+
+#[derive(Subcommand)]
+enum Command {}
+
 struct RedisContext {
     ip: String,
     port: u16,
-    auth: String,
+    password: Option<String>,
 }
 
 fn main() {
-    // TODO: parse command line to get redis context
+    let args = Args::parse();
     let redis_context = RedisContext {
-        ip: env::var("IP").unwrap(),
-        port: env::var("PORT").unwrap().parse::<u16>().unwrap(),
-        auth: env::var("AUTH").unwrap(),
+        ip: args.host,
+        port: args.port,
+        password: args.password,
     };
 
-
     let mut stream = TcpStream::connect(redis_context.ip.to_string() + ":" + &redis_context.port.to_string()).unwrap();
-    write_and_get_result(&stream, "auth ".to_owned() + &redis_context.auth.to_string() + "\n");
-
+    if redis_context.password.is_some() {
+        write_and_get_result(&stream, "auth ".to_owned() + &redis_context.password.unwrap().to_string() + "\n");
+    }
     loop {
         print!("{}:{}>", redis_context.ip, redis_context.port);
         io::stdout().flush().unwrap();
