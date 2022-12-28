@@ -1,6 +1,6 @@
 extern crate core;
 
-use std::{env, io};
+use std::io;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 
@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[clap(disable_help_flag = true)]
+#[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(short, long, default_value_t = String::from("127.0.0.1"))]
     host: String,
@@ -36,7 +37,7 @@ fn main() {
         password: args.password,
     };
 
-    let mut stream = TcpStream::connect(redis_context.ip.to_string() + ":" + &redis_context.port.to_string()).unwrap();
+    let stream = TcpStream::connect(redis_context.ip.to_string() + ":" + &redis_context.port.to_string()).unwrap();
     if redis_context.password.is_some() {
         write_and_get_result(&stream, "auth ".to_owned() + &redis_context.password.unwrap().to_string() + "\n");
     }
@@ -46,7 +47,7 @@ fn main() {
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();
         // input = input[..input.len() - 1].to_string();
-        if input.eq("quit") { std::process::exit(0); }
+        if input.trim().eq("quit") { std::process::exit(0); }
         let response = write_and_get_result(&stream, input);
         println!("{response}");
     }
@@ -69,10 +70,10 @@ fn write_and_get_result(mut stream: &TcpStream, cmd: String) -> String {
         // first char is *x, then read 2x lines
         let sub = &line[1..].trim();
         let lines = sub.parse::<i32>().unwrap();
-        for i in 0..lines {
+        for _ in 0..lines {
             let mut next_line = String::new();
             reader.read_line(&mut next_line).unwrap();
-            println!("next {next_line}");
+            // println!("next {next_line}");
             response += &*read_next_line(next_line, &mut reader);
             // should start with $
             // should read buffer
@@ -93,7 +94,7 @@ fn write_and_get_result(mut stream: &TcpStream, cmd: String) -> String {
 
 fn read_next_line(line: String, reader: &mut BufReader<&TcpStream>) -> String {
     let sub = &line[1..].trim();
-    println!("sub is {sub}");
+    // println!("sub is {sub}");
     let chars = sub.parse::<i32>().unwrap();
 
     if chars > 0 {
