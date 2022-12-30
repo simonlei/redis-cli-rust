@@ -6,6 +6,6 @@
 - [x] parse command line to get redis context
 - [x] Advanced Feature: parse command line params
 - [x] Use rust redis client lib
+- [ ] Write unit tests.
 
 - [ ] Advanced Feature: add tab support at input
-
