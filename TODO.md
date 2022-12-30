@@ -4,7 +4,8 @@
 - [x] Connect to redis server
 - [x] print response to output
 - [x] parse command line to get redis context
+- [x] Advanced Feature: parse command line params
+- [x] Use rust redis client lib
 
 - [ ] Advanced Feature: add tab support at input
-- [ ] Advanced Feature: parse command line params
 
