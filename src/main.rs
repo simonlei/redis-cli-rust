@@ -5,6 +5,9 @@ use std::io;
 use std::io::Write;
 
 use clap::{Parser, Subcommand};
+use redis::Connection;
+
+use derivative::Derivative;
 
 #[derive(Parser)]
 #[clap(disable_help_flag = true)]
@@ -23,8 +26,12 @@ struct Args {
 #[derive(Subcommand)]
 enum Command {}
 
+#[derive(Derivative)]
+#[derivative(Default)]
 struct RedisContext {
+    #[derivative(Default(value = "String::from(\"127.0.0.1\")"))]
     ip: String,
+    #[derivative(Default(value = "6379"))]
     port: u16,
     password: Option<String>,
 }
@@ -46,10 +53,8 @@ fn main() -> redis::RedisResult<()> {
         port: args.port,
         password: args.password,
     };
-    let conn_string = redis_context.get_connection_string();
-    println!("{}", conn_string);
-    let client = redis::Client::open(conn_string)?;
-    let mut con = client.get_connection()?;
+
+    let (redis_context, mut con) = make_connection(redis_context)?;
 
     loop {
         print!("{}:{}>", redis_context.ip, redis_context.port);
@@ -60,6 +65,14 @@ fn main() -> redis::RedisResult<()> {
         let response = call_and_get_result(&mut con, input);
         println!("{response}");
     }
+}
+
+fn make_connection(redis_context: RedisContext) -> redis::RedisResult<(RedisContext, Connection)> {
+    let conn_string = redis_context.get_connection_string();
+    println!("{}", conn_string);
+    let client = redis::Client::open(conn_string)?;
+    let con = client.get_connection()?;
+    Ok((redis_context, con))
 }
 
 fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
@@ -73,4 +86,21 @@ fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
         cmd.arg(arg);
     }
     cmd.query(con).unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{call_and_get_result, make_connection, RedisContext};
+
+    #[test]
+    fn test_make_connection() -> redis::RedisResult<()> {
+        let (redis_context, mut con) = make_connection(RedisContext::default())?;
+        assert_eq!(redis_context.port, 6379);
+        call_and_get_result(&mut con, String::from("set c 1"));
+        assert_eq!("1", call_and_get_result(&mut con, String::from("get c")));
+        return Ok(());
+    }
+
+    #[test]
+    fn test_nothing() {}
 }

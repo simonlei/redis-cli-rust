@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.0.32", features = ["derive"] }
 redis = { version = "0.22.1" }
+derivative = { version = "2.2.0" }
