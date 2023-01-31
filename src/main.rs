@@ -5,9 +5,13 @@ use std::io;
 use std::io::Write;
 
 use clap::{Parser, Subcommand};
-use redis::Connection;
-
 use derivative::Derivative;
+use redis::Connection;
+use shellwords;
+
+use redis_funcs::rediscmd::RedisCmds;
+
+pub mod redis_funcs;
 
 #[derive(Parser)]
 #[clap(disable_help_flag = true)]
@@ -79,7 +83,10 @@ fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
     if input.trim().len() == 0 {
         return String::from("");
     }
-    let cmds: Vec<&str> = input.trim().split_whitespace().collect();
+    // RedisCmds::parse(input);
+
+    let cmds: Vec<String> = shellwords::split(input.trim()).unwrap();
+    //input.trim().split_whitespace().collect();
     let args = &cmds[1..];
     let mut cmd = redis::cmd(cmds.get(0).unwrap());
     for arg in args {
@@ -98,6 +105,10 @@ mod tests {
         assert_eq!(redis_context.port, 6379);
         call_and_get_result(&mut con, String::from("set c 1"));
         assert_eq!("1", call_and_get_result(&mut con, String::from("get c")));
+        call_and_get_result(&mut con, String::from("set c '1 2 3'"));
+        assert_eq!("1 2 3", call_and_get_result(&mut con, String::from("get c")));
+        call_and_get_result(&mut con, String::from("set \"c d\" '1 2 3'"));
+        assert_eq!("1 2 3", call_and_get_result(&mut con, String::from("get \"c d\"")));
         return Ok(());
     }
 
