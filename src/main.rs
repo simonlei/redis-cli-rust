@@ -65,7 +65,7 @@ fn main() -> redis::RedisResult<()> {
         io::stdin().read_line(&mut input).unwrap();
         if input.trim().eq("quit") { std::process::exit(0); }
         let response = call_and_get_result(&mut con, input);
-        println!("{response}");
+        print!("{response}");
     }
 }
 
@@ -91,15 +91,15 @@ fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
 
     let value = match con.req_command(&cmd) {
         Ok(v) => v,
-        Err(err) => Value::Status(format!("Error:{}", err)),
+        Err(err) => Value::Status(format!("(error) {}", err)),
     };
     match value {
-        Value::Nil => String::from("ERR"),
-        Value::Data(data) => String::from_utf8(data).unwrap(),
+        Value::Nil => String::from("(nil)\n"),
+        Value::Data(data) => format!("\"{}\"\n", String::from_utf8(data).unwrap()),
         Value::Bulk(bulk) => format_bulk_data(bulk),
-        Value::Int(data) => format!("{}", data),
-        Value::Status(status) => status,
-        Value::Okay => String::from("Ok"),
+        Value::Int(data) => format!("(integer) {}\n", data),
+        Value::Status(status) => status + "\n",
+        Value::Okay => String::from("Ok\n"),
     }
 }
 
@@ -127,11 +127,11 @@ mod tests {
         let (redis_context, mut con) = make_connection(RedisContext::default())?;
         assert_eq!(redis_context.port, 6379);
         call_and_get_result(&mut con, String::from("set c 1"));
-        assert_eq!("1", call_and_get_result(&mut con, String::from("get c")));
+        assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from("get c")));
         call_and_get_result(&mut con, String::from("set c '1 2 3'"));
-        assert_eq!("1 2 3", call_and_get_result(&mut con, String::from("get c")));
+        assert_eq!("\"1 2 3\"\n", call_and_get_result(&mut con, String::from("get c")));
         call_and_get_result(&mut con, String::from("set \"c d\" '1 2 3'"));
-        assert_eq!("1 2 3", call_and_get_result(&mut con, String::from("get \"c d\"")));
+        assert_eq!("\"1 2 3\"\n", call_and_get_result(&mut con, String::from("get \"c d\"")));
         return Ok(());
     }
 
