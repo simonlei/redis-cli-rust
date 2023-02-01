@@ -6,10 +6,8 @@ use std::io::Write;
 
 use clap::{Parser, Subcommand};
 use derivative::Derivative;
-use redis::Connection;
+use redis::{Connection, ConnectionLike, from_redis_value, Value};
 use shellwords;
-
-use redis_funcs::rediscmd::RedisCmds;
 
 pub mod redis_funcs;
 
@@ -73,7 +71,7 @@ fn main() -> redis::RedisResult<()> {
 
 fn make_connection(redis_context: RedisContext) -> redis::RedisResult<(RedisContext, Connection)> {
     let conn_string = redis_context.get_connection_string();
-    println!("{}", conn_string);
+    // println!("{}", conn_string);
     let client = redis::Client::open(conn_string)?;
     let con = client.get_connection()?;
     Ok((redis_context, con))
@@ -83,24 +81,49 @@ fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
     if input.trim().len() == 0 {
         return String::from("");
     }
-    // RedisCmds::parse(input);
 
     let cmds: Vec<String> = shellwords::split(input.trim()).unwrap();
-    //input.trim().split_whitespace().collect();
     let args = &cmds[1..];
     let mut cmd = redis::cmd(cmds.get(0).unwrap());
     for arg in args {
         cmd.arg(arg);
     }
-    cmd.query(con).unwrap()
+
+    let value = match con.req_command(&cmd) {
+        Ok(v) => v,
+        Err(err) => Value::Status(format!("Error:{}", err)),
+    };
+    match value {
+        Value::Nil => String::from("ERR"),
+        Value::Data(data) => String::from_utf8(data).unwrap(),
+        Value::Bulk(bulk) => format_bulk_data(bulk),
+        Value::Int(data) => format!("{}", data),
+        Value::Status(status) => status,
+        Value::Okay => String::from("Ok"),
+    }
+}
+
+fn format_bulk_data(bulk: Vec<Value>) -> String {
+    let size = bulk.len();
+    if size == 0 {
+        return String::from("(empty list or set)");
+    }
+    let mut result = String::new();
+    let mut i = 1;
+    for data in bulk {
+        let str: String = from_redis_value(&data).unwrap();
+        result += &format!("{}) \"{}\"\n", i, str);
+        i += 1;
+    }
+    result
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{call_and_get_result, make_connection, RedisContext};
+    use super::*;
 
     #[test]
-    fn test_make_connection() -> redis::RedisResult<()> {
+    fn test_set_get() -> redis::RedisResult<()> {
         let (redis_context, mut con) = make_connection(RedisContext::default())?;
         assert_eq!(redis_context.port, 6379);
         call_and_get_result(&mut con, String::from("set c 1"));
@@ -113,5 +136,11 @@ mod tests {
     }
 
     #[test]
-    fn test_nothing() {}
+    fn test_keys() -> redis::RedisResult<()> {
+        let (_, mut con) = make_connection(RedisContext::default())?;
+        call_and_get_result(&mut con, String::from("set c 1"));
+        assert_eq!("(empty list or set)", call_and_get_result(&mut con, String::from("keys key_not_exist")));
+        assert_eq!("1) \"c\"\n", call_and_get_result(&mut con, String::from("keys c")));
+        return Ok(());
+    }
 }

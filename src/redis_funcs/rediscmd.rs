@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use derivative::Derivative;
 
 /// A fictional versioning CLI
 #[derive(Debug, Parser)] // requires `derive` feature
