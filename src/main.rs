@@ -1,14 +1,14 @@
 extern crate core;
 extern crate redis;
 
+use std::io;
+use std::io::Write;
+
 use atty::Stream;
 use clap::{Parser, Subcommand};
 use derivative::Derivative;
 use redis::{Connection, ConnectionLike, from_redis_value, Value};
 use shellwords;
-
-use std::io;
-use std::io::Write;
 
 pub mod redis_funcs;
 
@@ -109,7 +109,7 @@ fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
     };
     match value {
         Value::Nil => String::from("(nil)\n"),
-        Value::Data(data) => format!("\"{}\"\n", String::from_utf8(data).unwrap()),
+        Value::Data(data) => format!("\"{}\"\n", String::from_utf8_lossy(data.as_slice())),
         Value::Bulk(bulk) => format_bulk_data(bulk),
         Value::Int(data) => format!("(integer) {}\n", data),
         Value::Status(status) => status + "\n",
@@ -126,7 +126,10 @@ fn format_bulk_data(bulk: Vec<Value>) -> String {
     let mut i = 1;
     let col = (size.ilog10() + 1) as usize;
     for data in bulk {
-        let str: String = from_redis_value(&data).unwrap();
+        let str: String = match data {
+            Value::Data(d) => String::from_utf8_lossy(d.as_slice()).to_string(),
+            _ => from_redis_value(&data).unwrap(),
+        };
         result += &format!("{:>col$}) \"{}\"\n", i, str);
         i += 1;
     }
@@ -156,6 +159,7 @@ mod tests {
         call_and_get_result(&mut con, String::from("set c 1"));
         assert_eq!("(empty list or set)", call_and_get_result(&mut con, String::from("keys key_not_exist")));
         assert_eq!("1) \"c\"\n", call_and_get_result(&mut con, String::from("keys c")));
+        call_and_get_result(&mut con, String::from("info"));
         return Ok(());
     }
 }
