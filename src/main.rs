@@ -4,6 +4,7 @@ extern crate redis;
 use std::io;
 use std::io::Write;
 
+use atty::Stream;
 use clap::{Parser, Subcommand};
 use derivative::Derivative;
 use redis::{Connection, ConnectionLike, from_redis_value, Value};
@@ -48,7 +49,7 @@ impl RedisContext {
     }
 }
 
-fn main() -> redis::RedisResult<()> {
+fn main() {
     let args = Args::parse();
     let redis_context = RedisContext {
         ip: args.host,
@@ -56,16 +57,29 @@ fn main() -> redis::RedisResult<()> {
         password: args.password,
     };
 
-    let (redis_context, mut con) = make_connection(redis_context)?;
+    let (redis_context, mut con) = make_connection(redis_context).unwrap();
 
     loop {
-        print!("{}:{}>", redis_context.ip, redis_context.port);
+        if atty::is(Stream::Stdin) {
+            // only show prompt on tty
+            print!("{}:{}>", redis_context.ip, redis_context.port);
+        }
         io::stdout().flush().unwrap();
         let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-        if input.trim().eq("quit") { std::process::exit(0); }
-        let response = call_and_get_result(&mut con, input);
-        print!("{response}");
+        match io::stdin().read_line(&mut input) {
+            Ok(n) => {
+                if n == 0 { // get eof, maybe pipeline
+                    break;
+                }
+                if input.trim().eq("quit") { break; }
+                let response = call_and_get_result(&mut con, input);
+                print!("{response}");
+            }
+            Err(err) => {
+                println!("Error:{}, exit", err);
+                break;
+            }
+        }
     }
 }
 
@@ -99,7 +113,7 @@ fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
         Value::Bulk(bulk) => format_bulk_data(bulk),
         Value::Int(data) => format!("(integer) {}\n", data),
         Value::Status(status) => status + "\n",
-        Value::Okay => String::from("Ok\n"),
+        Value::Okay => String::from("OK\n"),
     }
 }
 
