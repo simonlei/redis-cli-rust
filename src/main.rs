@@ -1,14 +1,14 @@
 extern crate core;
 extern crate redis;
 
-use std::io;
-use std::io::Write;
-
 use atty::Stream;
 use clap::{Parser, Subcommand};
 use derivative::Derivative;
 use redis::{Connection, ConnectionLike, from_redis_value, Value};
 use shellwords;
+
+use std::io;
+use std::io::Write;
 
 pub mod redis_funcs;
 
@@ -62,7 +62,7 @@ fn main() {
     loop {
         if atty::is(Stream::Stdin) {
             // only show prompt on tty
-            print!("{}:{}>", redis_context.ip, redis_context.port);
+            print!("{}:{}> ", redis_context.ip, redis_context.port);
         }
         io::stdout().flush().unwrap();
         let mut input = String::new();
@@ -124,9 +124,10 @@ fn format_bulk_data(bulk: Vec<Value>) -> String {
     }
     let mut result = String::new();
     let mut i = 1;
+    let col = (size.ilog10() + 1) as usize;
     for data in bulk {
         let str: String = from_redis_value(&data).unwrap();
-        result += &format!("{}) \"{}\"\n", i, str);
+        result += &format!("{:>col$}) \"{}\"\n", i, str);
         i += 1;
     }
     result
