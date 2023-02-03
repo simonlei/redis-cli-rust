@@ -127,11 +127,26 @@ fn format_bulk_data(bulk: Vec<Value>) -> String {
     let col = (size.ilog10() + 1) as usize;
     for data in bulk {
         let str: String = match data {
-            Value::Data(d) => String::from_utf8_lossy(d.as_slice()).to_string(),
+            Value::Data(d) => match String::from_utf8(d.clone()) {
+                Ok(str) => str,
+                Err(_) => format_vec_with_unicode(d),
+            },
             _ => from_redis_value(&data).unwrap(),
         };
         result += &format!("{:>col$}) \"{}\"\n", i, str);
         i += 1;
+    }
+    result
+}
+
+fn format_vec_with_unicode(data: Vec<u8>) -> String {
+    let mut result = String::new();
+    for c in data {
+        if c.is_ascii() && !c.is_ascii_control() {
+            result += &format!("{}", c as char).to_string();
+        } else {
+            result += &format!("{:#04x}", c as usize).to_string().replace("0x", "\\x");
+        }
     }
     result
 }
@@ -159,7 +174,18 @@ mod tests {
         call_and_get_result(&mut con, String::from("set c 1"));
         assert_eq!("(empty list or set)", call_and_get_result(&mut con, String::from("keys key_not_exist")));
         assert_eq!("1) \"c\"\n", call_and_get_result(&mut con, String::from("keys c")));
-        call_and_get_result(&mut con, String::from("info"));
+        return Ok(());
+    }
+
+    #[test]
+    #[ignore]
+    fn test_all_keys() -> redis::RedisResult<()> {
+        let (_, mut con) = make_connection(RedisContext {
+            ip: String::from("xxx"),
+            port: 6380,
+            password: Some(String::from("xxx")),
+        })?;
+        call_and_get_result(&mut con, String::from("keys *"));
         return Ok(());
     }
 }
