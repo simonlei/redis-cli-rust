@@ -8,7 +8,8 @@ use atty::Stream;
 use clap::{Parser, Subcommand};
 use derivative::Derivative;
 use redis::{Connection, ConnectionLike, from_redis_value, Value};
-use shellwords;
+use regex::Regex;
+use shell_words;
 
 pub mod redis_funcs;
 
@@ -96,11 +97,11 @@ fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
         return String::from("");
     }
 
-    let cmds: Vec<String> = shellwords::split(input.trim()).unwrap();
+    let cmds: Vec<String> = shell_words::split(input.trim()).unwrap();
     let args = &cmds[1..];
     let mut cmd = redis::cmd(cmds.get(0).unwrap());
     for arg in args {
-        cmd.arg(arg);
+        cmd.arg(unescape_unicode(arg));
     }
 
     let value = match con.req_command(&cmd) {
@@ -151,8 +152,30 @@ fn format_vec_with_unicode(data: Vec<u8>) -> String {
     result
 }
 
+fn unescape_unicode(str: &String) -> String {
+    let re = Regex::new(r"\\x([0-9 a-f][0-9 a-f])").unwrap();
+    let mut locations = re.capture_locations();
+    let mut loc = 0;
+    let mut bytes: Vec<u8> = Vec::new();
+    while re.captures_read_at(&mut locations, &str, loc).is_some() {
+        let (start, end) = locations.get(0).unwrap();
+        if start > loc {
+            bytes.append(&mut str.get(loc..start).unwrap().as_bytes().to_vec());
+        }
+
+        bytes.push(u8::from_str_radix(str.get(start + 2..end).unwrap(), 16).unwrap());
+        // println!("From {} to {}", start, end);
+        loc = end;
+    }
+    bytes.append(&mut str.get(loc..).unwrap().as_bytes().to_vec());
+
+    String::from_utf8(bytes).unwrap()
+}
+
 #[cfg(test)]
 mod tests {
+    use redis::Commands;
+
     use super::*;
 
     #[test]
@@ -175,6 +198,24 @@ mod tests {
         assert_eq!("(empty list or set)", call_and_get_result(&mut con, String::from("keys key_not_exist")));
         assert_eq!("1) \"c\"\n", call_and_get_result(&mut con, String::from("keys c")));
         return Ok(());
+    }
+
+    #[test]
+    fn test_unicode_keys() -> redis::RedisResult<()> {
+        assert_eq!("中文key", String::from_utf8(b"\xe4\xb8\xad\xe6\x96\x87key".to_vec()).unwrap());
+        let (_, mut con) = make_connection(RedisContext::default())?;
+        let result: Option<String> = con.get(b"\xe4\xb8\xad\xe6\x96\x87key")?;
+        assert_eq!("1", result.unwrap());
+        call_and_get_result(&mut con, String::from("set 中文key 1"));
+        assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from("get 中文key")));
+        assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from_utf8(b"get '\xe4\xb8\xad\xe6\x96\x87key'".to_vec()).unwrap()));
+        assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from("get '\\xe4\\xb8\\xad\\xe6\\x96\\x87key'")));
+        Ok(())
+    }
+
+    #[test]
+    fn test_unescape_unicode() {
+        assert_eq!("中文key", unescape_unicode(&String::from("\\xe4\\xb8\\xad\\xe6\\x96\\x87key")));
     }
 
     #[test]
