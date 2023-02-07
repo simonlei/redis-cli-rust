@@ -215,7 +215,12 @@ mod tests {
 
     #[test]
     fn test_unescape_unicode() {
+        assert_eq!("中文S", unescape_unicode(&String::from("\\xe4\\xb8\\xad\\xe6\\x96\\x87\\x53")));
+        assert_eq!("中文", unescape_unicode(&String::from("\\xe4\\xb8\\xad\\xe6\\x96\\x87")));
+        assert_eq!("x中文", unescape_unicode(&String::from("x\\xe4\\xb8\\xad\\xe6\\x96\\x87")));
         assert_eq!("中文key", unescape_unicode(&String::from("\\xe4\\xb8\\xad\\xe6\\x96\\x87key")));
+        assert_eq!("中x文key", unescape_unicode(&String::from("\\xe4\\xb8\\xadx\\xe6\\x96\\x87key")));
+        assert_eq!("y中x文key", unescape_unicode(&String::from("y\\xe4\\xb8\\xadx\\xe6\\x96\\x87key")));
     }
 
     #[test]
