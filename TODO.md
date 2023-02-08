@@ -7,5 +7,5 @@
 - [x] Advanced Feature: parse command line params
 - [x] Use rust redis client lib
 - [x] Write unit tests.
-- [ ] bug: parse input unicode
+- [x] bug: parse input unicode
 - [ ] Advanced Feature: add tab support at input

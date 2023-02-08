@@ -1,5 +1,3 @@
-# Redis client for rust
+# Redis command line client for rust
 
-A project to learn rust.
-
-Porting hiredis to rust.
+A redis command line client for rust, just like redis-cli
