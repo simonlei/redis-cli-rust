@@ -97,11 +97,11 @@ fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
         return String::from("");
     }
 
-    let cmds: Vec<String> = shell_words::split(input.trim()).unwrap();
+    let cmds: Vec<String> = shell_words::split(unescape_unicode(&input).trim()).unwrap();
     let args = &cmds[1..];
     let mut cmd = redis::cmd(cmds.get(0).unwrap());
     for arg in args {
-        cmd.arg(unescape_unicode(arg));
+        cmd.arg(arg);
     }
 
     let value = match con.req_command(&cmd) {
@@ -153,6 +153,7 @@ fn format_vec_with_unicode(data: Vec<u8>) -> String {
 }
 
 fn unescape_unicode(str: &String) -> String {
+    // println!("To unescape:{}", str);
     let re = Regex::new(r"\\x([0-9 a-f][0-9 a-f])").unwrap();
     let mut locations = re.capture_locations();
     let mut loc = 0;
@@ -162,9 +163,13 @@ fn unescape_unicode(str: &String) -> String {
         if start > loc {
             bytes.append(&mut str.get(loc..start).unwrap().as_bytes().to_vec());
         }
-
-        bytes.push(u8::from_str_radix(str.get(start + 2..end).unwrap(), 16).unwrap());
-        // println!("From {} to {}", start, end);
+        if start > 0 && str.get(start - 1..start).unwrap().eq("\\") {
+            // it's \\xaa, should not be escaped.
+            bytes.append(&mut str.get(start..end).unwrap().as_bytes().to_vec());
+        } else {
+            bytes.push(u8::from_str_radix(str.get(start + 2..end).unwrap(), 16).unwrap());
+            // println!("From {} to {}", start, end);
+        }
         loc = end;
     }
     bytes.append(&mut str.get(loc..).unwrap().as_bytes().to_vec());
@@ -210,11 +215,15 @@ mod tests {
         assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from("get 中文key")));
         assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from_utf8(b"get '\xe4\xb8\xad\xe6\x96\x87key'".to_vec()).unwrap()));
         assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from("get '\\xe4\\xb8\\xad\\xe6\\x96\\x87key'")));
+
+        assert_eq!("\"noquote\"\n", call_and_get_result(&mut con, String::from("get \"\\\\xe4\\\\xb8\\\\xad\"")));
+
         Ok(())
     }
 
     #[test]
     fn test_unescape_unicode() {
+        assert_eq!("\\\\xe4\\\\xb8\\\\xad", unescape_unicode(&String::from("\\\\xe4\\\\xb8\\\\xad")));
         assert_eq!("中文S", unescape_unicode(&String::from("\\xe4\\xb8\\xad\\xe6\\x96\\x87\\x53")));
         assert_eq!("中文", unescape_unicode(&String::from("\\xe4\\xb8\\xad\\xe6\\x96\\x87")));
         assert_eq!("x中文", unescape_unicode(&String::from("x\\xe4\\xb8\\xad\\xe6\\x96\\x87")));
