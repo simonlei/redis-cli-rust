@@ -209,6 +209,7 @@ mod tests {
     fn test_unicode_keys() -> redis::RedisResult<()> {
         assert_eq!("中文key", String::from_utf8(b"\xe4\xb8\xad\xe6\x96\x87key".to_vec()).unwrap());
         let (_, mut con) = make_connection(RedisContext::default())?;
+        call_and_get_result(&mut con, String::from("set 中文key 1"));
         let result: Option<String> = con.get(b"\xe4\xb8\xad\xe6\x96\x87key")?;
         assert_eq!("1", result.unwrap());
         call_and_get_result(&mut con, String::from("set 中文key 1"));
@@ -216,6 +217,7 @@ mod tests {
         assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from_utf8(b"get '\xe4\xb8\xad\xe6\x96\x87key'".to_vec()).unwrap()));
         assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from("get '\\xe4\\xb8\\xad\\xe6\\x96\\x87key'")));
 
+        call_and_get_result(&mut con, String::from("set \"\\\\xe4\\\\xb8\\\\xad\" noquote"));
         assert_eq!("\"noquote\"\n", call_and_get_result(&mut con, String::from("get \"\\\\xe4\\\\xb8\\\\xad\"")));
 
         Ok(())
