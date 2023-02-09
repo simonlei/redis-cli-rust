@@ -21,6 +21,6 @@ jobs:
 
       - name: test and build
         uses: icepuma/rust-action@master
-        with:
-          args: cargo test && cargo build --release
+
+      - run: cargo test && cargo build --release
 
