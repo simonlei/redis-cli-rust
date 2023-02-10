@@ -8,4 +8,5 @@
 - [x] Use rust redis client lib
 - [x] Write unit tests.
 - [x] bug: parse input unicode
+- [ ] Convert \n to \\n when output to console.
 - [ ] Advanced Feature: add tab support at input

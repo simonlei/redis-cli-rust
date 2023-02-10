@@ -9,7 +9,6 @@ use clap::{Parser, Subcommand};
 use derivative::Derivative;
 use redis::{Connection, ConnectionLike, from_redis_value, Value};
 use regex::Regex;
-use shell_words;
 
 pub mod redis_funcs;
 
@@ -95,7 +94,7 @@ fn make_connection(redis_context: RedisContext) -> redis::RedisResult<(RedisCont
 }
 
 fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
-    if input.trim().len() == 0 {
+    if input.trim().is_empty() {
         return String::from("");
     }
 
@@ -154,13 +153,13 @@ fn format_vec_with_unicode(data: Vec<u8>) -> String {
     result
 }
 
-fn unescape_unicode(str: &String) -> String {
+fn unescape_unicode(str: &str) -> String {
     // println!("To unescape:{}", str);
     let re = Regex::new(r"\\x([0-9 a-f][0-9 a-f])").unwrap();
     let mut locations = re.capture_locations();
     let mut loc = 0;
     let mut bytes: Vec<u8> = Vec::new();
-    while re.captures_read_at(&mut locations, &str, loc).is_some() {
+    while re.captures_read_at(&mut locations, str, loc).is_some() {
         let (start, end) = locations.get(0).unwrap();
         if start > loc {
             bytes.append(&mut str.get(loc..start).unwrap().as_bytes().to_vec());
