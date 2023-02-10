@@ -15,9 +15,9 @@ pub mod redis_funcs;
 
 #[derive(Parser)]
 #[clap(disable_help_flag = true)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about)]
 struct Args {
-    #[arg(short, long, default_value_t = String::from("127.0.0.1"))]
+    #[arg(short, long, default_value = "127.0.0.1")]
     host: String,
     #[arg(short, long, default_value_t = 6379)]
     port: u16,
@@ -25,6 +25,8 @@ struct Args {
     password: Option<String>,
     #[clap(subcommand)]
     cmd: Option<Command>,
+    #[arg(long, action = clap::ArgAction::Help)]
+    help: Option<bool>,
 }
 
 #[derive(Subcommand)]
