@@ -5,60 +5,14 @@ use std::io;
 use std::io::Write;
 
 use atty::Stream;
-use clap::{Parser, Subcommand};
-use derivative::Derivative;
 use redis::{Connection, ConnectionLike, from_redis_value, Value};
 use regex::Regex;
 
+use redis_context::RedisContext;
+
 pub mod redis_funcs;
-
-#[derive(Parser)]
-#[clap(disable_help_flag = true)]
-#[command(author, version, about)]
-pub struct Args {
-    #[arg(short, long, default_value = "127.0.0.1")]
-    pub host: String,
-    #[arg(short, long, default_value_t = 6379)]
-    pub port: u16,
-    #[arg(short = 'a', long)]
-    pub password: Option<String>,
-    #[clap(subcommand)]
-    cmd: Option<Command>,
-    #[arg(long, action = clap::ArgAction::Help)]
-    help: Option<bool>,
-}
-
-#[derive(Subcommand)]
-enum Command {}
-
-#[derive(Derivative)]
-#[derivative(Default)]
-pub struct RedisContext {
-    #[derivative(Default(value = "String::from(\"127.0.0.1\")"))]
-    pub ip: String,
-    #[derivative(Default(value = "6379"))]
-    pub port: u16,
-    pub password: Option<String>,
-}
-
-impl RedisContext {
-    fn get_connection_string(&self) -> String {
-        let auth = match &self.password {
-            None => String::from(""),
-            Some(str) => format!(":{str}@"),
-        };
-        format!("redis://{auth}{0}:{1}", self.ip, self.port)
-    }
-}
-
-pub fn parse_args() -> RedisContext {
-    let args = Args::parse();
-    RedisContext {
-        ip: args.host,
-        port: args.port,
-        password: args.password,
-    }
-}
+pub mod cmd_parser;
+pub mod redis_context;
 
 pub fn work_with_redis(redis_context: RedisContext, con: &mut Connection) {
     loop {
@@ -86,12 +40,12 @@ pub fn work_with_redis(redis_context: RedisContext, con: &mut Connection) {
 }
 
 
-pub fn make_connection(redis_context: RedisContext) -> redis::RedisResult<(RedisContext, Connection)> {
+pub fn make_connection(redis_context: &RedisContext) -> redis::RedisResult<Connection> {
     let conn_string = redis_context.get_connection_string();
     // println!("{}", conn_string);
     let client = redis::Client::open(conn_string)?;
     let con = client.get_connection()?;
-    Ok((redis_context, con))
+    Ok(con)
 }
 
 fn call_and_get_result(con: &mut redis::Connection, input: String) -> String {
@@ -187,7 +141,8 @@ mod tests {
 
     #[test]
     fn test_set_get() -> redis::RedisResult<()> {
-        let (redis_context, mut con) = make_connection(RedisContext::default())?;
+        let redis_context = RedisContext::default();
+        let mut con = make_connection(&redis_context)?;
         assert_eq!(redis_context.port, 6379);
         call_and_get_result(&mut con, String::from("set c 1"));
         assert_eq!("\"1\"\n", call_and_get_result(&mut con, String::from("get c")));
@@ -200,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_keys() -> redis::RedisResult<()> {
-        let (_, mut con) = make_connection(RedisContext::default())?;
+        let mut con = make_connection(&RedisContext::default())?;
         call_and_get_result(&mut con, String::from("set c 1"));
         assert_eq!("(empty list or set)", call_and_get_result(&mut con, String::from("keys key_not_exist")));
         assert_eq!("1) \"c\"\n", call_and_get_result(&mut con, String::from("keys c")));
@@ -210,7 +165,7 @@ mod tests {
     #[test]
     fn test_unicode_keys() -> redis::RedisResult<()> {
         assert_eq!("中文key", String::from_utf8(b"\xe4\xb8\xad\xe6\x96\x87key".to_vec()).unwrap());
-        let (_, mut con) = make_connection(RedisContext::default())?;
+        let mut con = make_connection(&RedisContext::default())?;
         call_and_get_result(&mut con, String::from("set 中文key 1"));
         let result: Option<String> = con.get(b"\xe4\xb8\xad\xe6\x96\x87key")?;
         assert_eq!("1", result.unwrap());
@@ -239,7 +194,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_all_keys() -> redis::RedisResult<()> {
-        let (_, mut con) = make_connection(RedisContext {
+        let mut con = make_connection(&RedisContext {
             ip: String::from("xxx"),
             port: 6380,
             password: Some(String::from("xxx")),
