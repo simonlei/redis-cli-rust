@@ -27,5 +27,6 @@ pub fn parse_args() -> redis_context::RedisContext {
         ip: args.host,
         port: args.port,
         password: args.password,
+        con: None,
     }
 }

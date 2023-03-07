@@ -10,8 +10,5 @@ pub(crate) struct RedisCmds {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    Set {
-        key: String,
-        value: String,
-    }
+    Set { key: String, value: String },
 }
