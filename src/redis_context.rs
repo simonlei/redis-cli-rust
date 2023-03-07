@@ -90,9 +90,7 @@ fn format_vec_with_unicode(data: Vec<u8>) -> String {
         if c.is_ascii() && !c.is_ascii_control() {
             result += &format!("{}", c as char).to_string();
         } else {
-            result += &format!("{:#04x}", c as usize)
-                .to_string()
-                .replace("0x", "\\x");
+            result += &format!("{:#04x}", c as usize).to_string().replace("0x", "\\x");
         }
     }
     result
@@ -131,38 +129,26 @@ mod tests {
 
     #[test]
     fn test_set_get() -> redis::RedisResult<()> {
-        let mut redis_context = RedisContext::default();
-        assert_eq!(redis_context.port, 6379);
-        redis_context.call_and_get_result(String::from("set c 1"));
-        assert_eq!(
-            "\"1\"\n",
-            redis_context.call_and_get_result(String::from("get c"))
-        );
-        redis_context.call_and_get_result(String::from("set c '1 2 3'"));
-        assert_eq!(
-            "\"1 2 3\"\n",
-            redis_context.call_and_get_result(String::from("get c"))
-        );
-        redis_context.call_and_get_result(String::from("set \"c d\" '1 2 3'"));
-        assert_eq!(
-            "\"1 2 3\"\n",
-            redis_context.call_and_get_result(String::from("get \"c d\""))
-        );
+        let mut ctx = RedisContext::default();
+        assert_eq!(ctx.port, 6379);
+        ctx.call_and_get_result(String::from("set c 1"));
+        assert_eq!("\"1\"\n", ctx.call_and_get_result(String::from("get c")));
+        ctx.call_and_get_result(String::from("set c '1 2 3'"));
+        assert_eq!("\"1 2 3\"\n", ctx.call_and_get_result(String::from("get c")));
+        ctx.call_and_get_result(String::from("set \"c d\" '1 2 3'"));
+        assert_eq!("\"1 2 3\"\n", ctx.call_and_get_result(String::from("get \"c d\"")));
         return Ok(());
     }
 
     #[test]
     fn test_keys() -> redis::RedisResult<()> {
-        let mut redis_context = RedisContext::default();
-        redis_context.call_and_get_result(String::from("set c 1"));
+        let mut ctx = RedisContext::default();
+        ctx.call_and_get_result(String::from("set c 1"));
         assert_eq!(
             "(empty list or set)",
-            redis_context.call_and_get_result(String::from("keys key_not_exist"))
+            ctx.call_and_get_result(String::from("keys key_not_exist"))
         );
-        assert_eq!(
-            "1) \"c\"\n",
-            redis_context.call_and_get_result(String::from("keys c"))
-        );
+        assert_eq!("1) \"c\"\n", ctx.call_and_get_result(String::from("keys c")));
         return Ok(());
     }
 
@@ -172,32 +158,26 @@ mod tests {
             "中文key",
             String::from_utf8(b"\xe4\xb8\xad\xe6\x96\x87key".to_vec()).unwrap()
         );
-        let mut redis_context = RedisContext::default();
-        redis_context.call_and_get_result(String::from("set 中文key 1"));
-        let con: &mut Connection = &mut redis_context.con.as_mut().unwrap();
+        let mut ctx = RedisContext::default();
+        ctx.call_and_get_result(String::from("set 中文key 1"));
+        let con: &mut Connection = &mut ctx.con.as_mut().unwrap();
         let result: Option<String> = con.get(b"\xe4\xb8\xad\xe6\x96\x87key")?;
         assert_eq!("1", result.unwrap());
-        redis_context.call_and_get_result(String::from("set 中文key 1"));
+        ctx.call_and_get_result(String::from("set 中文key 1"));
+        assert_eq!("\"1\"\n", ctx.call_and_get_result(String::from("get 中文key")));
         assert_eq!(
             "\"1\"\n",
-            redis_context.call_and_get_result(String::from("get 中文key"))
+            ctx.call_and_get_result(String::from_utf8(b"get '\xe4\xb8\xad\xe6\x96\x87key'".to_vec()).unwrap())
         );
         assert_eq!(
             "\"1\"\n",
-            redis_context.call_and_get_result(
-                String::from_utf8(b"get '\xe4\xb8\xad\xe6\x96\x87key'".to_vec()).unwrap()
-            )
-        );
-        assert_eq!(
-            "\"1\"\n",
-            redis_context
-                .call_and_get_result(String::from("get '\\xe4\\xb8\\xad\\xe6\\x96\\x87key'"))
+            ctx.call_and_get_result(String::from("get '\\xe4\\xb8\\xad\\xe6\\x96\\x87key'"))
         );
 
-        redis_context.call_and_get_result(String::from("set \"\\\\xe4\\\\xb8\\\\xad\" noquote"));
+        ctx.call_and_get_result(String::from("set \"\\\\xe4\\\\xb8\\\\xad\" noquote"));
         assert_eq!(
             "\"noquote\"\n",
-            redis_context.call_and_get_result(String::from("get \"\\\\xe4\\\\xb8\\\\xad\""))
+            ctx.call_and_get_result(String::from("get \"\\\\xe4\\\\xb8\\\\xad\""))
         );
 
         Ok(())
