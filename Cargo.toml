@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.0.32", features = ["derive"] }
-redis = { version = "0.22.1" }
-derivative = { version = "2.2.0" }
-shell-words = { version = "1.1.0" }
-atty = { version = "0.2.14" }
-regex = { version = "1.7.1" }
+clap = { version = "*", features = ["derive"] }
+redis = { version = "*" }
+derivative = { version = "*" }
+shell-words = { version = "*" }
+atty = { version = "*" }
+regex = { version = "*" }
